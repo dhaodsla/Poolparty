@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, OperationType, handleFirestoreError } from '../lib/hooks';
 import { db, loginWithNickname } from '../lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc } from 'firebase/firestore';
@@ -6,9 +6,107 @@ import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { Send, MapPin, Calendar, Users, Info, Plus, Minus, User, Share2, Crown, Star, CheckCircle2, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Playlist } from '../components/Playlist';
+import { PhotoGallery } from '../components/PhotoGallery';
 
 export function Home() {
   const { user } = useAuth();
+
+  const introLines = [
+    "STAY YEON POOL PARTY",
+    "스테이연 프라이빗 풀파티",
+    "1박 2일 바비큐 & 소셜 파티",
+    "6월 26일 금요일,",
+    "스테이연 A동·B동 전체를 사용하는",
+    "소수정예 프라이빗 풀파티에 초대합니다."
+  ];
+
+  const [typedLines, setTypedLines] = useState<string[]>(["", "", "", "", "", ""]);
+  const [currentLineIdx, setCurrentLineIdx] = useState(0);
+  const [currentCharIdx, setCurrentCharIdx] = useState(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [introFinished, setIntroFinished] = useState(() => {
+    return typeof window !== 'undefined' && !!sessionStorage.getItem('stay_yeon_intro_played');
+  });
+  const [showPrompt, setShowPrompt] = useState(false);
+
+  const playTypingSound = () => {
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    try {
+      if (ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(100 + Math.random() * 50, ctx.currentTime); 
+      
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1000, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.03);
+
+      gain.gain.setValueAtTime(0.015, ctx.currentTime); 
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.03);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (introFinished) return;
+
+    // Try to create AudioContext on first line if it doesn't exist
+    if (!audioCtxRef.current) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+            audioCtxRef.current = new AudioContextClass();
+        }
+    }
+
+    if (currentLineIdx >= introLines.length) {
+      const timer = setTimeout(() => {
+        setShowPrompt(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    const currentLineText = introLines[currentLineIdx];
+    if (currentCharIdx < currentLineText.length) {
+      const char = currentLineText[currentCharIdx];
+      const isKorean = /[가-힣]/.test(char);
+      const speed = isKorean ? 70 : 40;
+
+      const timer = setTimeout(() => {
+        setTypedLines(prev => {
+          const next = [...prev];
+          next[currentLineIdx] = currentLineText.slice(0, currentCharIdx + 1);
+          return next;
+        });
+        if (char !== ' ') {
+          playTypingSound();
+        }
+        setCurrentCharIdx(prev => prev + 1);
+      }, speed);
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => {
+        setCurrentLineIdx(prev => prev + 1);
+        setCurrentCharIdx(0);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentLineIdx, currentCharIdx, introFinished]);
+
+  const finishIntro = () => {
+    sessionStorage.setItem('stay_yeon_intro_played', 'true');
+    setIntroFinished(true);
+  };
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -36,6 +134,135 @@ export function Home() {
   
   return (
     <>
+      <AnimatePresence mode="wait">
+        {!introFinished && (
+          <motion.div 
+            key="intro"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="fixed inset-0 z-[999] bg-brand-bg flex flex-col justify-center items-center px-6 md:px-12 text-center select-none"
+          >
+            <div className="max-w-xl w-full flex flex-col items-center justify-center space-y-4 py-8 relative">
+              {/* Line 1: STAY YEON POOL PARTY */}
+              {(currentLineIdx > 0 || typedLines[0]) && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="font-serif tracking-[0.2em] text-brand-accent/60 text-[10px] md:text-xs uppercase font-medium"
+                >
+                  {typedLines[0]}
+                  {currentLineIdx === 0 && <span className="animate-pulse">|</span>}
+                </motion.div>
+              )}
+
+              {/* Line 2: 스테이연 프라이빗 파티 */}
+              {(currentLineIdx > 1 || typedLines[1]) && (
+                <motion.h2 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-3xl md:text-4xl font-serif italic text-brand-accent tracking-tight font-medium"
+                >
+                  {typedLines[1]}
+                  {currentLineIdx === 1 && <span className="animate-pulse">|</span>}
+                </motion.h2>
+              )}
+
+              {/* Line 3: 1박 2일 바비큐 & 소셜 파티 */}
+              {(currentLineIdx > 2 || typedLines[2]) && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="w-16 border-b border-brand-accent/20 my-2"
+                />
+              )}
+              {(currentLineIdx > 2 || typedLines[2]) && (
+                <motion.h3 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-2xl md:text-3xl font-sans text-brand-text font-bold tracking-tight mb-4"
+                >
+                  {typedLines[2]}
+                  {currentLineIdx === 2 && <span className="animate-pulse">|</span>}
+                </motion.h3>
+              )}
+
+              {/* Poetic Greetings Line-by-Line */}
+              <div className="space-y-1 pt-4 text-center flex flex-col items-center">
+                {/* Line 4: 6월 26일 금요일, */}
+                {(currentLineIdx > 3 || typedLines[3]) && (
+                  <motion.p 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-xs md:text-sm font-sans font-semibold text-brand-accent/80"
+                  >
+                    {typedLines[3]}
+                    {currentLineIdx === 3 && <span className="animate-pulse">|</span>}
+                  </motion.p>
+                )}
+
+                {/* Line 5: 스테이연 A동·B동 전체를 사용하는 */}
+                {(currentLineIdx > 4 || typedLines[4]) && (
+                  <motion.p 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-[11px] md:text-xs font-sans text-brand-text/70 font-medium"
+                  >
+                    {typedLines[4]}
+                    {currentLineIdx === 4 && <span className="animate-pulse">|</span>}
+                  </motion.p>
+                )}
+
+                {/* Line 6: 소수정예 프라이빗 파티에 초대합니다. */}
+                {(currentLineIdx > 5 || typedLines[5]) && (
+                  <motion.p 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-[11px] md:text-xs font-sans text-brand-text/70 font-medium mt-1"
+                  >
+                    {typedLines[5]}
+                    {currentLineIdx === 5 && <span className="animate-pulse">|</span>}
+                  </motion.p>
+                )}
+              </div>
+
+              {/* Squid Game style Prompt */}
+              {showPrompt && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="mt-12 flex flex-col items-center space-y-6 pt-8 border-t border-brand-accent/20 w-full"
+                >
+                  <p className="font-serif italic text-lg md:text-xl text-brand-text">참여하시겠습니까?</p>
+                  <div className="flex gap-8">
+                    <button 
+                      onClick={finishIntro} 
+                      className="w-16 h-16 md:w-20 md:h-20 rounded-full border border-brand-accent text-brand-accent hover:bg-brand-accent hover:text-white transition-all font-bold text-2xl md:text-3xl flex items-center justify-center shadow-sm"
+                    >
+                      O
+                    </button>
+                    <button 
+                      onClick={() => alert('이 게임에서 기권은 불가능합니다.')} 
+                      className="w-16 h-16 md:w-20 md:h-20 rounded-full border border-brand-text/40 text-brand-text/40 hover:bg-brand-text/10 transition-all font-bold text-2xl md:text-3xl flex items-center justify-center"
+                    >
+                      X
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            <button 
+              onClick={finishIntro}
+              className="absolute bottom-12 text-[10px] uppercase tracking-[0.25em] text-brand-accent/40 hover:text-brand-accent/80 transition-colors font-semibold"
+            >
+              건너뛰기 Skip →
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col md:flex-row border-x border-brand-accent/10">
       
       {/* Left Column: Media & Event Info */}
@@ -52,13 +279,13 @@ export function Home() {
             </button>
           </div>
           <motion.h1 
-            className="text-4xl md:text-5xl font-serif leading-[1.1] mb-6 tracking-tight text-brand-text font-semibold"
+            className="text-4xl md:text-5xl font-serif leading-[1.1] mb-6 tracking-tight text-brand-text font-semibold break-keep"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
             스테이연 <br /> 
-            <span className="italic text-brand-accent font-normal text-3xl md:text-4xl block mt-1">프라이빗 풀파티</span>
+            <span className="italic text-brand-accent font-normal text-3xl md:text-4xl block mt-1">프라이빗 <br className="md:hidden" />풀파티</span>
           </motion.h1>
 
           <CountdownTimer />
@@ -162,6 +389,42 @@ export function Home() {
             </div>
           </div>
         </div>
+
+        {/* FAQ Section */}
+        <div className="mt-4 border border-brand-accent/20 rounded-2xl p-5 md:p-6 bg-white/50 backdrop-blur-sm mb-4">
+          <h3 className="text-sm font-serif font-bold text-brand-text mb-4 pb-3 border-b border-brand-accent/10 flex items-center justify-between">
+            <span>자주 묻는 질문 (FAQ)</span>
+            <Info className="w-4 h-4 text-brand-accent/60" />
+          </h3>
+          <div className="space-y-4">
+            <div className="flex gap-3 items-start p-4 bg-brand-bg/50 rounded-xl border border-brand-accent/5">
+              <span className="text-brand-accent font-serif font-bold text-lg leading-none mt-0.5">Q</span>
+              <div className="flex-1">
+                <strong className="block text-brand-text text-sm mb-1.5">드레스 코드가 있나요?</strong>
+                <span className="text-brand-accent/80 text-xs leading-relaxed block">수영복, 래쉬가드 등 편안한 물놀이 복장을 권장합니다. 저녁 바비큐 파티를 위한 편안한 여벌 옷도 챙겨주세요.</span>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 items-start p-4 bg-brand-bg/50 rounded-xl border border-brand-accent/5">
+              <span className="text-brand-accent font-serif font-bold text-lg leading-none mt-0.5">Q</span>
+              <div className="flex-1">
+                <strong className="block text-brand-text text-sm mb-1.5">준비해야 할 개인 물품이 있나요?</strong>
+                <span className="text-brand-accent/80 text-xs leading-relaxed block">개인 화장품, 칫솔 등 기호에 맞는 세면도구를 챙겨오시면 좋습니다. 수건과 샴푸, 바디워시 등 기본 어메니티는 숙소에 넉넉히 비치되어 있습니다.</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start p-4 bg-brand-bg/50 rounded-xl border border-brand-accent/5">
+              <span className="text-brand-accent font-serif font-bold text-lg leading-none mt-0.5">Q</span>
+              <div className="flex-1">
+                <strong className="block text-brand-text text-sm mb-1.5">식사나 주류는 어떻게 제공되나요?</strong>
+                <span className="text-brand-accent/80 text-xs leading-relaxed block">최고급 바비큐 파티와 곁들일 다양한 주류 및 음료가 모두 준비되어 있습니다. 특별히 선호하는 개별 주류가 있다면 자유롭게 가져오셔도 좋습니다.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <Playlist />
+        <PhotoGallery />
       </section>
 
       {/* Right Column: Interaction */}

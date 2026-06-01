@@ -73,5 +73,19 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+
+    function isValidPhoto(data) {
+      return data.keys().hasAll(['userId', 'url', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.url is string && data.url.size() <= 1000000 &&
+             data.createdAt is number;
+    }
+
+    match /photos/{photoId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(photoId) && isValidPhoto(incoming());
+      allow delete: if false;
+    }
   }
 }
