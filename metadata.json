@@ -1,0 +1,6 @@
+{
+  "name": "스테이연 파티 앱",
+  "description": "스테이연 펜션 A동/B동 파티 홍보 및 예약 관리 애플리케이션 (댓글, 프로필, 채팅 기능 포함)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

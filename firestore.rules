@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return true; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['displayName', 'email', 'createdAt']) && 
+             data.keys().size() <= 4 &&
+             data.displayName is string && data.displayName.size() <= 50 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.createdAt is number &&
+             (data.get('photoURL', '') is string && data.get('photoURL', '').size() <= 500);
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && incoming().createdAt == existing().createdAt;
+    }
+
+    function isValidReservation(data) {
+      return data.keys().hasAll(['userId', 'guests', 'status', 'createdAt']) &&
+             data.keys().size() == 4 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.guests is number && data.guests >= 1 && data.guests <= 20 &&
+             data.status is string && data.status in ['pending', 'confirmed', 'cancelled'] &&
+             data.createdAt is number;
+    }
+
+    match /reservations/{reservationId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(reservationId) && isValidReservation(incoming());
+      allow update: if isSignedIn() && isValidId(reservationId) && isValidReservation(incoming()) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'guests'])
+      );
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['userId', 'text', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 500 &&
+             data.createdAt is number;
+    }
+
+    match /comments/{commentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(commentId) && isValidComment(incoming());
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(commentId);
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['userId', 'text', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
+             data.createdAt is number;
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(messageId) && isValidMessage(incoming());
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
