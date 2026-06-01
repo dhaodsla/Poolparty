@@ -6,7 +6,6 @@ import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { Send, MapPin, Calendar, Users, Info, Plus, Minus, User, Share2, Crown, Star, CheckCircle2, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Playlist } from '../components/Playlist';
 import { PhotoGallery } from '../components/PhotoGallery';
 
 export function Home() {
@@ -106,30 +105,6 @@ export function Home() {
   const finishIntro = () => {
     sessionStorage.setItem('stay_yeon_intro_played', 'true');
     setIntroFinished(true);
-  };
-
-  const handleShare = async () => {
-    const url = window.location.href;
-    const shareData = {
-      title: 'STAY YEON POOL PARTY - 프라이빗 풀파티',
-      text: '6월 26일 금요일, 스테이연 소수정예 프라이빗 풀파티에 초대합니다.',
-      url: url,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        // user cancelled or failed, fallback to clipboard if wanted
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        alert('초대장 링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요!');
-      } catch (err) {
-        alert('링크 복사에 실패했습니다.');
-      }
-    }
   };
   
   return (
@@ -273,10 +248,6 @@ export function Home() {
               <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">STAY YEON POOL PARTY</span>
               <span className="text-xs font-medium text-brand-accent/60">6월 26일 금요일</span>
             </div>
-            <button onClick={handleShare} className="text-brand-accent hover:bg-brand-accent/10 p-2 rounded-full transition-colors flex items-center gap-2 border border-brand-accent/20 bg-white shadow-sm" title="초대장 카카오톡으로 보내기">
-              <Share2 className="w-4 h-4" />
-              <span className="text-[10px] uppercase font-bold tracking-wider">공유하기</span>
-            </button>
           </div>
           <motion.h1 
             className="text-4xl md:text-5xl font-serif leading-[1.1] mb-6 tracking-tight text-brand-text font-semibold break-keep"
@@ -423,7 +394,6 @@ export function Home() {
           </div>
         </div>
         
-        <Playlist />
         <PhotoGallery />
       </section>
 
